@@ -1,81 +1,77 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
-namespace LogReader.Messages
+namespace LogParser.Messages
 {
-    internal readonly struct PrinterStatusUpdateMessage(DateTime logTimeStamp, int hour, int minutes, int seconds, int milliseconds, int eventHour, int eventMinutes, int eventSeconds,
-        int eventMilliseconds, int threadNumber, MessageLevel messageLevel, int equipmentNumber, int conveyorLineNumber, int printerNumber, bool printerStatus, string tagName, int scannerNumber, int tagIndex)
+    internal record PrinterStatusUpdateMessage(DateTime LogTimeStamp, TimeSpan UtcOffset, int Hour, int Minutes, int Seconds, int Milliseconds, int EventHour, int EventMinutes, int EventSeconds,
+        int EventMilliseconds, int ThreadNumber, MessageLevel MessageLevel, int EquipmentNumber, int ConveyorLineNumber, int PrinterNumber, bool PrinterStatus, string TagName, int ScannerNumber, int TagIndex) : BaseMessage
     {
-        [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string TimeStampPattern = @"(?<time>(?<hour>\d{2}):(?<minutes>\d{2}):(?<seconds>\d{2})\.(?<milliseconds>\d{3}))";
+        #region Private Constants
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string EventTimeStampPattern = @"(?<_time>(?<_hour>\d{2}):(?<_minutes>\d{2}):(?<_seconds>\d{2})\.(?<_milliseconds>\d{3}))";
+        private const string TimeStampPattern = @"(?<time>(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})\.(?<millisecond>\d{3}))";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string ThreadNumberPattern = @"(?<thread>\d+)";
+        private const string EventTimeStampPattern = @"(?<_time>(?<_hour>\d{2}):(?<_minute>\d{2}):(?<_second>\d{2}):(?<_millisecond>\d{3}))";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string MessageLevelPattern = @"(?<level>INFO|DEBUG|WARNING|ERROR)";
+        private const string ThreadNumberPattern = @"\[(?<thread>\d+)\]";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string EquipmentNumberPattern = @"Equipment (?<equipment>\d+)";
+        private const string ThreadNullPattern = @"\(null\)";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string PrinterStatusPattern = @"Update Printer Receiving Line (?<line>\d) PandA (?<printer>\d) Enabled (?<status>True|False) using Tag: (?<tag>SCANNER_(?<scanner>\d+)PRINTER_W_STATUS\[(?<index>(\d+)\]))";
+        private const string MessageLevelPattern = @"(?<level>INFO|DEBUG|WARNING|ERROR)";
+
+        [StringSyntax(StringSyntaxAttribute.Regex)]
+        private const string EquipmentNumberPattern = @"Equipment (?<equipment>\d+)";
+
+        [StringSyntax(StringSyntaxAttribute.Regex)]
+        private const string PrinterStatusPattern = @"Update Printer Receiving Line (?<line>\d) PandA (?<printer>\d) Enabled (?<status>True|False)";
         
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private static readonly string TagPattern = @"using Tag: (?<tag>SCANNER_(?<scanner>\d+)PRINTER_W_STATUS\[(?<index>(\d+)\]))";
+        private const string TagPattern = @"using Tag: (?<tag>SCANNER_(?<scanner>\d+)_PRINTER_W_STATUS\[(?<index>\d+)\])";
+
+        #endregion
+
+        #region Public Properties
 
         public DateTimeOffset TimeStamp { get; } = new DateTimeOffset
             (
-                year: logTimeStamp.Year,
-                month: logTimeStamp.Month,
-                day: logTimeStamp.Day,
-                hour: hour,
-                minute: minutes,
-                second: seconds,
-                millisecond: milliseconds,
-                offset: Configuration.TimeZone.GetUtcOffset(logTimeStamp)
+                year: LogTimeStamp.Year,
+                month: LogTimeStamp.Month,
+                day: LogTimeStamp.Day,
+                hour: Hour,
+                minute: Minutes,
+                second: Seconds,
+                millisecond: Milliseconds,
+                offset: UtcOffset
             );
 
         public DateTimeOffset EventTimeStamp { get; } = new DateTimeOffset
             (
-                year: logTimeStamp.Year,
-                month: logTimeStamp.Month,
-                day: logTimeStamp.Day,
-                hour: eventHour,
-                minute: eventMinutes,
-                second: eventSeconds,
-                millisecond: eventMilliseconds,
-                offset: Configuration.TimeZone.GetUtcOffset(logTimeStamp)
+                year: LogTimeStamp.Year,
+                month: LogTimeStamp.Month,
+                day: LogTimeStamp.Day,
+                hour: EventHour,
+                minute: EventMinutes,
+                second: EventSeconds,
+                millisecond: EventMilliseconds,
+                offset: UtcOffset
             );
 
-        public int ThreadNumber { get; } = threadNumber;
+        public string PrinterName => $"PandA {PrinterNumber} (Receiving Line {ConveyorLineNumber})";
 
-        public MessageLevel MessageLevel { get; } = messageLevel;
+        #endregion
 
-        public int EquipmentNumber { get; } = equipmentNumber;
+        #region Public Static Methods
 
-        public int ConveyorLineNumber { get; } = conveyorLineNumber;
-
-        public int PrinterNumber { get; } = printerNumber;
-
-        public bool PrinterStatus { get; } = printerStatus;
-
-        public string TagName { get; } = tagName;
-
-        public int ScannerNumber { get; } = scannerNumber;
-
-        public int TagIndex { get; } = tagIndex;
-
-        public readonly string PrinterName => $"Receiving Line {ConveyorLineNumber} PandA {PrinterNumber}";
-
-        public static bool TryParse(string message, DateTime logTimeStamp, out PrinterStatusUpdateMessage result)
+        public static bool TryParse(string message, DateTime logTimeStamp, TimeZoneInfo timeZone, out PrinterStatusUpdateMessage? result)
         {
-            var pattern = string.Format("{0} [{1}] (null) {2}  {3} - {4} - {5} {6}",
+            var pattern = string.Format(@"{0} {1} {2} {3}  {4} - {5} - {6} {7}",
                 TimeStampPattern,
                 ThreadNumberPattern,
+                ThreadNullPattern,
                 MessageLevelPattern,
                 EquipmentNumberPattern,
                 EventTimeStampPattern,
@@ -92,31 +88,36 @@ namespace LogReader.Messages
             {
                 result = new PrinterStatusUpdateMessage
                     (
-                        logTimeStamp: logTimeStamp,
-                        hour: int.Parse(match.Groups["hour"].Value),
-                        minutes: int.Parse(match.Groups["minutes"].Value),
-                        seconds: int.Parse(match.Groups["seconds"].Value),
-                        milliseconds: int.Parse(match.Groups["milliseconds"].Value),
+                        LogTimeStamp: logTimeStamp,
+                        UtcOffset: timeZone.GetUtcOffset(logTimeStamp),
 
-                        eventHour: int.Parse(match.Groups["_hour"].Value),
-                        eventMinutes: int.Parse(match.Groups["_minutes"].Value),
-                        eventSeconds: int.Parse(match.Groups["_seconds"].Value),
-                        eventMilliseconds: int.Parse(match.Groups["_milliseconds"].Value),
+                        Hour: int.Parse(match.Groups["hour"].Value),
+                        Minutes: int.Parse(match.Groups["minute"].Value),
+                        Seconds: int.Parse(match.Groups["second"].Value),
+                        Milliseconds: int.Parse(match.Groups["millisecond"].Value),
 
-                        threadNumber: int.Parse(match.Groups["thread"].Value),
-                        messageLevel: Enum.Parse<MessageLevel>(match.Groups["level"].Value),
+                        EventHour: int.Parse(match.Groups["_hour"].Value),
+                        EventMinutes: int.Parse(match.Groups["_minute"].Value),
+                        EventSeconds: int.Parse(match.Groups["_second"].Value),
+                        EventMilliseconds: int.Parse(match.Groups["_millisecond"].Value),
 
-                        equipmentNumber: int.Parse(match.Groups["equipment"].Value),
-                        conveyorLineNumber: int.Parse(match.Groups["line"].Value),
-                        printerNumber: int.Parse(match.Groups["printer"].Value),
-                        printerStatus: bool.Parse(match.Groups["status"].Value),
-                        tagName: match.Groups["tag"].Value,
-                        scannerNumber: int.Parse(match.Groups["scanner"].Value),
-                        tagIndex: int.Parse(match.Groups["index"].Value)
+                        ThreadNumber: int.Parse(match.Groups["thread"].Value),
+                        MessageLevel: Enum.Parse<MessageLevel>(ToPascalCase(match.Groups["level"].Value)),
+
+                        EquipmentNumber: int.Parse(match.Groups["equipment"].Value),
+                        ConveyorLineNumber: int.Parse(match.Groups["line"].Value),
+                        PrinterNumber: int.Parse(match.Groups["printer"].Value),
+                        PrinterStatus: bool.Parse(match.Groups["status"].Value),
+                        TagName: match.Groups["tag"].Value,
+                        ScannerNumber: int.Parse(match.Groups["scanner"].Value),
+                        TagIndex: int.Parse(match.Groups["index"].Value)
                     );
 
                 return true;
             }
         }
+
+        #endregion
+
     }
 }

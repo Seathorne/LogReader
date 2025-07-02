@@ -1,14 +1,14 @@
-﻿namespace LogReader
+﻿namespace LogParser
 {
-    public static class LogReaderConsole
+    public sealed class LogReaderConsole
     {
-        public static event EventHandler<LogReaderEventArgs>? OnLogRead;
+        public event EventHandler<LogReaderEventArgs>? OnLogRead;
 
-        public static event EventHandler<LogReaderEventArgs>? OnLogProcessed;
+        public event EventHandler<LogReaderEventArgs>? OnLogProcessed;
 
-        public static event EventHandler<LogReaderEventArgs>? OnWriteLine;
+        public event EventHandler<LogReaderEventArgs>? OnWriteLine;
 
-        public static void WriteLine(string line)
+        public void WriteLine(string line)
         {
             OnWriteLine?.Invoke(null, new LogReaderEventArgs(line));
         }

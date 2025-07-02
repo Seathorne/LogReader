@@ -1,4 +1,4 @@
-﻿namespace LogReader
+﻿namespace LogParser
 {
     internal interface IBaseLog
     {

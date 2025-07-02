@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 
-namespace LogReader
+namespace LogParser
 {
     internal readonly struct InboundState(DateTimeOffset timestamp, bool? printer1Status = null, bool? printer2Status = null) : IBaseState
     {

@@ -1,22 +1,36 @@
-﻿namespace LogReader
+﻿namespace LogParser
 {
-    internal class LogReader(string filePath) : IDisposable
+    public class LogReader : IDisposable
     {
-        readonly StreamReader streamReader = new(filePath);
+        private FileStream? fileStream;
+        private StreamReader? streamReader;
+
+        private InboundLog? inboundLog;
+
+        public required TimeZoneInfo TimeZone { get; set; }
+
+        public LogReaderConsole Console { get; } = new();
 
         public void Dispose()
         {
-            ((IDisposable)streamReader).Dispose();
+            fileStream?.Dispose();
+            streamReader?.Dispose();
+            GC.SuppressFinalize(this);
+
+            fileStream = null;
+            streamReader = null;
         }
 
-        public IEnumerable<string?> ReadLines(int numLines)
+        public void ProcessFile(string filePath)
         {
-            int count = 0;
-            string? line;
-            while ((line = streamReader.ReadLine()) != null && count < numLines)
+            fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            streamReader = new StreamReader(fileStream);
+            inboundLog = new InboundLog(File.GetLastWriteTime(filePath), TimeZone, Console);
+
+            string[] lines = streamReader.ReadToEnd().Split(Environment.NewLine);
+            foreach (string line in lines)
             {
-                count++;
-                yield return line;
+                inboundLog.ProcessLine(line);
             }
         }
     }

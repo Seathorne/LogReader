@@ -1,4 +1,4 @@
-﻿namespace LogReader
+﻿namespace LogParser
 {
     public class LogReaderEventArgs(string line)
     {
