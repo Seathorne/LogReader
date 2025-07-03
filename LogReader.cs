@@ -1,4 +1,6 @@
-﻿namespace LogParser
+﻿using LogParser.LogState.Inbound;
+
+namespace LogParser
 {
     public class LogReader : IDisposable
     {
