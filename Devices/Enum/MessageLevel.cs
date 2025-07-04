@@ -1,4 +1,4 @@
-﻿namespace LogParser.LogState
+﻿namespace LogParser.Devices.Enum
 {
     internal enum MessageLevel : byte
     {

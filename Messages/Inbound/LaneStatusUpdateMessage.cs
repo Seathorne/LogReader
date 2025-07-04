@@ -1,5 +1,4 @@
-﻿using LogParser.LogState;
-
+﻿using LogParser.Devices.Enum;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;

@@ -1,4 +1,6 @@
-﻿using LogParser.LogState.Inbound;
+﻿using LogParser.Systems.ViewModel;
+using LogParser.Devices.ViewModel;
+using LogParser.Logs;
 
 namespace LogParser
 {
@@ -27,7 +29,10 @@ namespace LogParser
         {
             fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             streamReader = new StreamReader(fileStream);
-            inboundLog = new InboundLog(File.GetLastWriteTime(filePath), TimeZone, Console);
+
+            var writeTime = File.GetLastWriteTime(filePath);
+            var timeStamp = new DateTimeOffset(writeTime, TimeZone.GetUtcOffset(writeTime));
+            inboundLog = new InboundLog(timeStamp, Console);
 
             string[] lines = streamReader.ReadToEnd().Split(Environment.NewLine);
             foreach (string line in lines)
