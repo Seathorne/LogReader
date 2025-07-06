@@ -1,29 +1,28 @@
 ﻿using LogParser.Devices.Enum;
+
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
 namespace LogParser.Messages
 {
-    internal partial record LaneStatusUpdateMessage(DateTimeOffset TimeStamp,
-        int ThreadNumber, MessageLevel MessageLevel, int EquipmentNumber, ImmutableArray<(int LaneNumber, LaneStatus LaneStatus)> LaneStatuses, int ConveyorLineNumber) : MessageBase
+    internal partial record ZonesFoundMessage(DateTimeOffset TimeStamp,
+        int ThreadNumber, MessageLevel MessageLevel, int EquipmentNumber, ImmutableArray<string> ZoneIDs, int ConveyorLineNumber) : MessageBase
     {
         #region Constants
 
-        public const string MessagePattern = $"{TimeStampPattern} {ThreadNumberPattern} {ThreadNullPattern} {MessageLevelPattern} {EquipmentNumberPattern} - {DisabledLanesPattern} {ScannerPattern}";
-
+        public const string MessagePattern = $"{TimeStampPattern} {ThreadNumberPattern} {ThreadNullPattern} {MessageLevelPattern} {EquipmentNumberPattern} - {ZonesFoundPattern} {ScannerPattern}";
+        
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private const string DisabledLanesPattern = @"(?<status>Disabled|Partially Full|Full) Lanes \[(?<lanes>(?:(?<lane>\d+),?\s?)*)\]";
+        private const string ZonesFoundPattern = @"Zones Found \[(?<zones>(?:(?<zone>\d+),?\s?)*)\]";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
         private const string ScannerPattern = @"at Scanner \[Line (?<line>\d+) Receiving Scanner\]";
 
         #endregion
 
-        #region Properties
+        #region Public Properties
 
-        public static LaneStatusUpdateMessage DefaultRecord => new LaneStatusUpdateMessage(DateTimeOffset.MinValue, -1, MessageLevel.None, -1, [], -1); 
-        
         [GeneratedRegex(MessagePattern)]
         private static partial Regex MessageRegex { get; }
 
@@ -31,9 +30,15 @@ namespace LogParser.Messages
 
         #endregion
 
+        #region Properties
+
+        public static ZonesFoundMessage DefaultRecord => new ZonesFoundMessage(DateTimeOffset.MinValue, -1, MessageLevel.None, -1, [], -1);
+
+        #endregion
+
         #region Methods
 
-        public static bool TryParse(string message, DateTimeOffset logTimeStamp, out LaneStatusUpdateMessage result)
+        public static bool TryParse(string message, DateTimeOffset logTimeStamp, out ZonesFoundMessage result)
         {
             var match = MessageRegex.Match(message);
 
@@ -44,10 +49,10 @@ namespace LogParser.Messages
             }
             else
             {
-                var messageType = Enum.Parse<LaneStatus>(ToPascalCase(match.Groups["status"].Value));
                 var messageLevel = Enum.Parse<MessageLevel>(ToPascalCase(match.Groups["level"].Value));
+                var zoneNumbers = ImmutableArray.Create(match.Groups["zone"].Captures.Select(capture => capture.Value).ToArray());
 
-                result = new LaneStatusUpdateMessage
+                result = new ZonesFoundMessage
                     (
                         TimeStamp: new DateTimeOffset
                             (
@@ -65,31 +70,11 @@ namespace LogParser.Messages
                         MessageLevel: messageLevel,
 
                         EquipmentNumber: int.Parse(match.Groups["equipment"].Value),
-                        LaneStatuses: getLaneStatuses(messageType),
+                        ZoneIDs: zoneNumbers,
                         ConveyorLineNumber: int.Parse(match.Groups["line"].Value)
                     );
 
                 return true;
-            }
-
-            ImmutableArray<(int LaneNumber, LaneStatus LaneStatus)> getLaneStatuses(LaneStatus messageType)
-            {
-                var laneCaptures = match.Groups["lane"].Captures;
-                int laneCount = laneCaptures.Count >= 1 ? int.Parse(laneCaptures.Last().Value) : 0;
-                var laneStatuses = new (int LaneNumber, LaneStatus LaneStatus)[laneCount];
-
-                if (laneCount > 0)
-                {
-                    for (int i = 0; i < laneCaptures.Count; i++)
-                    {
-                        int laneNumber = int.Parse(laneCaptures[i].Value);
-                        int laneIndex = laneNumber - 1;
-                        laneStatuses[laneIndex].LaneNumber = laneNumber;
-                        laneStatuses[laneIndex].LaneStatus = messageType;
-                    }
-                }
-
-                return ImmutableArray.Create(laneStatuses);
             }
         }
 

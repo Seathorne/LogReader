@@ -1,6 +1,4 @@
-﻿using LogParser.Systems.ViewModel;
-using LogParser.Devices.ViewModel;
-using LogParser.Logs;
+﻿using LogParser.LogTypes;
 
 namespace LogParser
 {
