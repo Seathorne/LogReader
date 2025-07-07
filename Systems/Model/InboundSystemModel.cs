@@ -4,7 +4,8 @@ using System.Collections.Immutable;
 namespace LogParser.Systems.Model
 {
     internal record InboundSystemModel(
-        DateTimeOffset TimeStamp, 
-        ImmutableArray<PrinterModel> Printers,
-        ImmutableArray<ZoneModel> Zones);
+            ImmutableArray<PrinterModel> Printers,
+            ImmutableArray<ZoneModel> Zones,
+            DateTimeOffset? TimeStamp = null)
+        : SystemModelBase(TimeStamp);
 }

@@ -1,11 +1,11 @@
-﻿using LogParser.Systems.Model;
-using LogParser.Devices.ViewModel;
-using System.Collections.ObjectModel;
+﻿using LogParser.Devices.ViewModel;
+using LogParser.Systems.Model;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 
 namespace LogParser.Systems.ViewModel
 {
-    internal class InboundSystemViewModel : RecordViewModelBase<InboundSystemModel>
+    internal class InboundSystemViewModel : SystemViewModelBase<InboundSystemModel>
     {
         #region Fields
         private readonly ObservableCollection<PrinterViewModel> _printerViewModels;
@@ -16,12 +16,6 @@ namespace LogParser.Systems.ViewModel
 
         #region Properties
 
-        public DateTimeOffset TimeStamp
-        {
-            get => Model.TimeStamp;
-            set => UpdateModel(model => model with { TimeStamp = value });
-        }
-
         public ReadOnlyObservableCollection<PrinterViewModel> Printers => new(_printerViewModels);
 
         public ReadOnlyDictionary<string, ZoneViewModel> Zones => new(_zoneViewModels);
@@ -30,10 +24,10 @@ namespace LogParser.Systems.ViewModel
 
         #region Constructors
 
-        public InboundSystemViewModel(DateTimeOffset timeStamp,
+        public InboundSystemViewModel(
             PrinterViewModel[] printers,
             ZoneViewModel[] zones)
-            : base(new InboundSystemModel(timeStamp,
+            : base(new InboundSystemModel(
                 [.. printers.Select(p => p.Model)],
                 [.. zones.Select(z => z.Model)]))
         {

@@ -1,17 +1,43 @@
-﻿using LogParser.LogTypes;
+﻿using LogParser.Devices.ViewModel;
+using LogParser.LogTypes;
+using System.Net;
 
 namespace LogParser
 {
     public class LogReader : IDisposable
     {
+        #region Fields
+
         private FileStream? fileStream;
+        
         private StreamReader? streamReader;
 
-        private InboundLog? inboundLog;
+        private readonly InboundLog _inboundLog;
+
+        #endregion
+
+        #region Properties
 
         public required TimeZoneInfo TimeZone { get; set; }
 
         public LogReaderConsole Console { get; } = new();
+
+        #endregion
+
+        public LogReader()
+        {
+            _inboundLog = new(viewModel: new(
+                printers: [
+                    new PrinterViewModel(id: 1, ipAddress: new IPAddress([172, 24, 18, 38])),
+                    new PrinterViewModel(id: 2, ipAddress: new IPAddress([172, 24, 18, 39])),
+                    new PrinterViewModel(id: 3, ipAddress: new IPAddress([172, 24, 18, 40])),
+                    new PrinterViewModel(id: 4, ipAddress: new IPAddress([172, 24, 18, 41]))
+                ],
+                zones: [
+                    new ZoneViewModel(id: "000")
+                ]),
+                Console);
+        }
 
         public void Dispose()
         {
@@ -29,13 +55,13 @@ namespace LogParser
             streamReader = new StreamReader(fileStream);
 
             var writeTime = File.GetLastWriteTime(filePath);
-            var timeStamp = new DateTimeOffset(writeTime, TimeZone.GetUtcOffset(writeTime));
-            inboundLog = new InboundLog(timeStamp, Console);
+            var writeTimeOffset = new DateTimeOffset(writeTime, TimeZone.GetUtcOffset(writeTime));
+            _inboundLog.LogTimeStamp = writeTimeOffset;
 
             string[] lines = streamReader.ReadToEnd().Split(Environment.NewLine);
             foreach (string line in lines)
             {
-                inboundLog.ProcessLine(line);
+                _inboundLog.ProcessLine(line);
             }
         }
     }

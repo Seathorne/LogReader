@@ -2,5 +2,6 @@
 
 namespace LogParser.Devices.Model
 {
-    internal record LaneModel(int LaneNumber, LaneStatus? Status = null);
+    internal record LaneModel(int LaneNumber, LaneStatus? Status = null)
+        : RecordModelBase;
 }

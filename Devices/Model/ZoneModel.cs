@@ -1,4 +1,5 @@
 ﻿namespace LogParser.Devices.Model
 {
-    internal record ZoneModel(string ZoneId);
+    internal record ZoneModel(string ZoneId)
+        : RecordModelBase;
 }
