@@ -11,7 +11,7 @@ namespace LogParser.Systems.ViewModel
     {
         #region Fields
 
-        private readonly ObservableCollection<PrinterViewModel> _printerViewModels;
+        private readonly ObservableDictionary<int, PrinterViewModel> _printerViewModels;
 
         private readonly ObservableDictionary<string, ZoneViewModel> _zoneViewModels;
 
@@ -23,7 +23,7 @@ namespace LogParser.Systems.ViewModel
 
         /* Each property represents an immutable collection of mutable view-models, which handle editing state. */
 
-        public ReadOnlyObservableCollection<PrinterViewModel> Printers => new(_printerViewModels);
+        public ReadOnlyDictionary<int, PrinterViewModel> Printers => new(_printerViewModels);
 
         public ReadOnlyDictionary<string, ZoneViewModel> Zones => new(_zoneViewModels);
 
@@ -44,15 +44,17 @@ namespace LogParser.Systems.ViewModel
                 Zones: [.. zones.Select(z => z.Model)],
                 QueuedUpContainers: queuedContainers.ToDictionary().ToLookup()))
         {
-            _printerViewModels = new ObservableCollection<PrinterViewModel>(printers);
-            _zoneViewModels = new ObservableDictionary<string, ZoneViewModel>(zones.Select(z => (z.Model.ZoneId, z)).ToDictionary());
+            // Initialize underlying collections
+            _printerViewModels = new ObservableDictionary<int, PrinterViewModel>(printers.Select(p => (p.PrinterId, p)).ToDictionary());
+            _zoneViewModels = new ObservableDictionary<string, ZoneViewModel>(zones.Select(z => (z.ZoneId, z)).ToDictionary());
             _queuedUpContainers = 
                 queuedContainers.Select(scanner => 
                     (scanner.ScannerName, new ObservableCollection<ContainerViewModel>(scanner.Containers)))
                 .ToDictionary().ToObservableDictionary();
 
             // Set up event hooks to update model when updates are made to underlying collections
-            _printerViewModels.CollectionChanged += (sender, args) => RebuildSystemModel();
+            _printerViewModels.ItemAdded += (sender, args) => RebuildSystemModel();
+            _printerViewModels.ItemRemoved += (sender, args) => RebuildSystemModel();
             _zoneViewModels.ItemAdded += (zoneId, zoneVm) => RebuildSystemModel();
             _zoneViewModels.ItemRemoved += (zoneId, zoneVm) => RebuildSystemModel();
 
@@ -89,7 +91,7 @@ namespace LogParser.Systems.ViewModel
 
         private void RebuildSystemModel()
         {
-            var currentPrinterModels = _printerViewModels.Select(vm => vm.Model).ToArray();
+            var currentPrinterModels = _printerViewModels.Select(entry => entry.Value.Model).ToArray();
             var currentZoneModels = _zoneViewModels.Select(entry => entry.Value.Model).ToArray();
 
             UpdateModel(m => m with

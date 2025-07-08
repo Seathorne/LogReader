@@ -19,10 +19,8 @@ namespace LogParser.LogTypes
             parsed |= PrinterStatusUpdateMessage.TryParse(line, logTimeStamp, out var printerStatusUpdate);
             if (parsed)
             {
-                int index = printerStatusUpdate.ConveyorLineNumber - 1;
-
                 // update state
-                ViewModel.Printers[index].Status = printerStatusUpdate.PrinterStatus;
+                ViewModel.Printers[printerStatusUpdate.ConveyorLineNumber].Status = printerStatusUpdate.PrinterStatus;
                 ViewModel.TimeStamp = printerStatusUpdate.EventTimeStamp;
 
                 // store history
@@ -66,13 +64,9 @@ namespace LogParser.LogTypes
                 _inboundHistory.Add(ViewModel.Model);
 
                 // update console
-                foreach (var scanner in ViewModel.QueuedContainersLookup)
-                {
-                    foreach (var container in scanner)
-                    {
-                        _console?.WriteLine($"{ViewModel.TimeStamp:HH:mm:ss.fff} Container queued up: {container?.LPN} ({container?.LotNumber}) at {scanner.Key} Scanner");
-                    }
-                }
+                var scanner = scanQueuedUpResult.ScannerType;
+                var container = ViewModel.QueuedContainersLookup[scanner].LastOrDefault();
+                _console?.WriteLine($"{ViewModel.TimeStamp:HH:mm:ss.fff} Container queued up: {container?.LPN} ({container?.LotNumber}) at {scanner} Scanner");
 
                 return;
             }
