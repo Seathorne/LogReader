@@ -1,5 +1,7 @@
-﻿using LogParser.Devices.ViewModel;
+﻿using LogParser.Devices.Enum;
+using LogParser.Devices.ViewModel;
 using LogParser.LogTypes;
+using LogParser.Systems.ViewModel;
 using System.Net;
 
 namespace LogParser
@@ -26,17 +28,23 @@ namespace LogParser
 
         public LogReader()
         {
-            _inboundLog = new(viewModel: new(
-                printers: [
-                    new PrinterViewModel(id: 1, ipAddress: new IPAddress([172, 24, 18, 38])),
-                    new PrinterViewModel(id: 2, ipAddress: new IPAddress([172, 24, 18, 39])),
-                    new PrinterViewModel(id: 3, ipAddress: new IPAddress([172, 24, 18, 40])),
-                    new PrinterViewModel(id: 4, ipAddress: new IPAddress([172, 24, 18, 41]))
-                ],
-                zones: [
-                    new ZoneViewModel(id: "000")
-                ]),
-                Console);
+            _inboundLog = new InboundLog(
+                viewModel: new InboundSystemViewModel(
+                    printers: [
+                        new PrinterViewModel(id: 1, ipAddress: new IPAddress([172, 24, 18, 38])),
+                        new PrinterViewModel(id: 2, ipAddress: new IPAddress([172, 24, 18, 39])),
+                        new PrinterViewModel(id: 3, ipAddress: new IPAddress([172, 24, 18, 40])),
+                        new PrinterViewModel(id: 4, ipAddress: new IPAddress([172, 24, 18, 41]))
+                    ],
+                    zones: [
+                        new ZoneViewModel(id: "000")
+                    ],
+                    queuedContainers: [
+                        (ScannerName.Receiving, new List<ContainerViewModel>()),
+                        (ScannerName.Verification, new List<ContainerViewModel>())
+                    ]
+                ),
+                console: Console);
         }
 
         public void Dispose()
