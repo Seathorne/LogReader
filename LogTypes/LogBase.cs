@@ -1,10 +1,12 @@
 ﻿using LogParser.Systems.Model;
 using LogParser.Systems.ViewModel;
+using LogParser.Utility;
 
 namespace LogParser.LogTypes
 {
     internal abstract class LogBase<TModel, TViewModel>(
             TViewModel viewModel,
+            (Type MessageType, bool IsEnabled)[]? enabledMessages = null,
             LogReaderConsole? console = null)
         where TModel : SystemModelBase
         where TViewModel : SystemViewModelBase<TModel>
@@ -22,6 +24,8 @@ namespace LogParser.LogTypes
         public DateTimeOffset? LogTimeStamp { get; set; }
 
         public TViewModel ViewModel { get; } = viewModel;
+
+        public ObservableDictionary<Type, bool> EnabledMessages { get; } = enabledMessages?.ToDictionary().ToObservableDictionary() ?? [];
 
         #endregion
 

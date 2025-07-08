@@ -1,6 +1,7 @@
 ﻿using LogParser.Devices.Enum;
 using LogParser.Devices.ViewModel;
 using LogParser.LogTypes;
+using LogParser.Messages;
 using LogParser.Systems.ViewModel;
 using System.Net;
 
@@ -44,6 +45,12 @@ namespace LogParser
                         (ScannerName.Verification, new List<ContainerViewModel>())
                     ]
                 ),
+                enabledMessages: [
+                    (typeof(PrinterStatusUpdateMessage), true),
+                    (typeof(LaneStatusUpdateMessage), false),
+                    (typeof(ZonesFoundMessage), false),
+                    (typeof(ScanQueuedUpMessage), true)
+                ],
                 console: Console);
         }
 
