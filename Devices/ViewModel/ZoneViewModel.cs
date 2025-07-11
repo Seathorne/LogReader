@@ -4,11 +4,18 @@ namespace LogParser.Devices.ViewModel
 {
     internal class ZoneViewModel : RecordViewModelBase<ZoneModel>
     {
-        public string ZoneId => Model.ZoneId;
-
-        public ZoneViewModel(string id) : base(new ZoneModel(id))
+        public string? ZoneId
         {
-            Model = new ZoneModel(id);
+            get => Model.ZoneID;
+            set => UpdateModel(m => m with { ZoneID = value });
+        }
+
+        public ZoneViewModel()
+        {
+        }
+
+        public ZoneViewModel(string zoneID) : base(new ZoneModel(zoneID))
+        {
         }
     }
 }

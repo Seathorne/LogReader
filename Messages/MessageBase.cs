@@ -1,10 +1,11 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using LogParser.Devices.Enum;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LogParser.Messages
 {
-    internal record MessageBase
+    internal abstract record MessageBase<TSelf> where TSelf : MessageBase<TSelf>, IParsable<TSelf>
     {
-        #region Protected Constants
+        #region Constants
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
         protected const string TimeStampPattern = @"(?<time>(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})\.(?<millisecond>\d{3}))";
@@ -26,7 +27,19 @@ namespace LogParser.Messages
 
         #endregion
 
-        #region Protected Static Methods
+        #region Properties
+
+        public TimeOnly MessageTime { get; init; }
+
+        public int ThreadID { get; init; }
+
+        public int EquipmentID { get; init; }
+
+        public MessageLevel MessageLevel { get; init; }
+
+        #endregion
+
+        #region Methods
 
         protected static string ToPascalCase(string input)
         {

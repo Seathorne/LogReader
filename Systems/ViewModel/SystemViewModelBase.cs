@@ -3,12 +3,14 @@ using LogParser.Systems.Model;
 
 namespace LogParser.Systems.ViewModel
 {
-    internal abstract class SystemViewModelBase<TModel>(TModel initialModel) : RecordViewModelBase<TModel>(initialModel) where TModel : SystemModelBase
+    internal abstract class SystemViewModelBase<TModel> : RecordViewModelBase<TModel> where TModel : SystemModelBase, new()
     {
-        public DateTimeOffset? TimeStamp
+        public SystemViewModelBase()
         {
-            get => Model.TimeStamp;
-            set => UpdateModel(model => model with { TimeStamp = value });
+        }
+
+        public SystemViewModelBase(TModel initialModel) : base(initialModel)
+        {
         }
     }
 }

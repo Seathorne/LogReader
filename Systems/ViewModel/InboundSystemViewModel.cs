@@ -1,86 +1,80 @@
 ﻿using LogParser.Devices.Enum;
+using LogParser.Devices.Model;
 using LogParser.Devices.ViewModel;
 using LogParser.Systems.Model;
 using LogParser.Utility;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 
 namespace LogParser.Systems.ViewModel
 {
     internal class InboundSystemViewModel : SystemViewModelBase<InboundSystemModel>
     {
-        #region Fields
-
-        private readonly ObservableDictionary<int, PrinterViewModel> _printerViewModels;
-
-        private readonly ObservableDictionary<string, ZoneViewModel> _zoneViewModels;
-
-        private readonly ObservableDictionary<ScannerName, ObservableCollection<ContainerViewModel>> _queuedUpContainers;
-
-        #endregion
-
         #region Properties
 
         /* Each property represents an immutable collection of mutable view-models, which handle editing state. */
 
-        public ReadOnlyDictionary<int, PrinterViewModel> Printers => new(_printerViewModels);
+        public ObservableDictionary<int, PrinterViewModel> Printers { get; }
 
-        public ReadOnlyDictionary<string, ZoneViewModel> Zones => new(_zoneViewModels);
+        public ObservableDictionary<string, ZoneViewModel> Zones { get; }
 
-        public ILookup<ScannerName, ContainerViewModel> QueuedContainersLookup => DictionaryExtensions.ToLookup(_queuedUpContainers);
-
-        public ReadOnlyDictionary<ScannerName, ObservableCollection<ContainerViewModel>> QueuedUpContainers => new(_queuedUpContainers);
+        public ObservableDictionary<ScannerName, ObservableCollection<ContainerViewModel>> QueuedContainers { get; }
 
         #endregion
 
         #region Constructors
 
+        public InboundSystemViewModel()
+        {
+            Printers = [];
+            Zones = [];
+            QueuedContainers = [];
+        }
+
         public InboundSystemViewModel(
-                PrinterViewModel[] printers,
-                ZoneViewModel[] zones,
-                (ScannerName ScannerName, List<ContainerViewModel> Containers)[] queuedContainers)
-            : base(new InboundSystemModel(
-                Printers: [.. printers.Select(p => p.Model)],
-                Zones: [.. zones.Select(z => z.Model)],
-                QueuedUpContainers: queuedContainers.ToDictionary().ToLookup()))
+                ISet<PrinterViewModel> printers,
+                ISet<ZoneViewModel> zones,
+                IDictionary<ScannerName, Queue<ContainerViewModel>> queuedContainers)
+            : base(
+                new InboundSystemModel(
+                    printers: new HashSet<PrinterModel>(printers.Select(vm => vm.Model)),
+                    zones: new HashSet<ZoneModel>(zones.Select(vm => vm.Model)),
+                    queuedContainers: queuedContainers.ToDictionary(kvp => kvp.Key, kvp => new Queue<ContainerModel>(kvp.Value.Select(vm => vm.Model)))
+                ))
         {
             // Initialize underlying collections
-            _printerViewModels = new ObservableDictionary<int, PrinterViewModel>(printers.Select(p => (p.PrinterId, p)).ToDictionary());
-            _zoneViewModels = new ObservableDictionary<string, ZoneViewModel>(zones.Select(z => (z.ZoneId, z)).ToDictionary());
-            _queuedUpContainers = 
-                queuedContainers.Select(scanner => 
-                    (scanner.ScannerName, new ObservableCollection<ContainerViewModel>(scanner.Containers)))
-                .ToDictionary().ToObservableDictionary();
+            Printers = printers.ToObservableDictionary(vm => vm.PrinterID ?? throw new NullReferenceException(), vm => vm);
+            Zones = zones.ToObservableDictionary(vm => vm.ZoneId ?? throw new NullReferenceException(), vm => vm);
+            QueuedContainers = queuedContainers.ToObservableDictionary(kvp => kvp.Key, kvp => new ObservableCollection<ContainerViewModel>(kvp.Value));
 
-            // Set up event hooks to update model when updates are made to underlying collections
-            _printerViewModels.ItemAdded += (sender, args) => RebuildSystemModel();
-            _printerViewModels.ItemRemoved += (sender, args) => RebuildSystemModel();
-            _zoneViewModels.ItemAdded += (zoneId, zoneVm) => RebuildSystemModel();
-            _zoneViewModels.ItemRemoved += (zoneId, zoneVm) => RebuildSystemModel();
+            // Set up event hooks to update model when updates are made to device collections
+            Printers.CollectionChanged += OnSystemViewModelChanged;
+            Zones.CollectionChanged += OnSystemViewModelChanged;
+            QueuedContainers.CollectionChanged += OnSystemViewModelChanged;
 
             var scanners = Enum.GetValues<ScannerName>();
             foreach (var scanner in scanners.Where(name => name != ScannerName.None))
             {
-                _queuedUpContainers.ItemAdded += (scanner, queuedContainers) => RebuildSystemModel();
-                _queuedUpContainers.ItemRemoved += (scanner, queuedContainers) => RebuildSystemModel();
+                QueuedContainers[scanner].CollectionChanged += OnSystemViewModelChanged;
             }
 
-            // Set up event hooks to update model when updates are made to underlying components
+            // Set up event hooks to update model when updates are made to devices
             foreach (var printer in printers)
             {
-                printer.RequestSystemUpdate += RebuildSystemModel;
+                printer.ModelChanged += OnDeviceViewModelChanged;
             }
 
             foreach (var zone in zones)
             {
-                zone.RequestSystemUpdate += RebuildSystemModel;
+                zone.ModelChanged += OnDeviceViewModelChanged;
             }
 
-            foreach (var queuedUpContainers in queuedContainers.Select(kvp => kvp.Containers))
+            foreach (var queue in queuedContainers.Values)
             {
-                foreach (var container in queuedUpContainers)
+                foreach (var container in queue)
                 {
-                    container.RequestSystemUpdate += RebuildSystemModel;
+                    container.ModelChanged += OnDeviceViewModelChanged;
                 }
             }
         }
@@ -89,18 +83,17 @@ namespace LogParser.Systems.ViewModel
 
         #region Methods
 
-        private void RebuildSystemModel()
-        {
-            var currentPrinterModels = _printerViewModels.Select(entry => entry.Value.Model).ToArray();
-            var currentZoneModels = _zoneViewModels.Select(entry => entry.Value.Model).ToArray();
+        private InboundSystemModel RebuildSystemModel() => new(
+            printers: [.. Printers.Select(kvp => kvp.Value.Model)],
+            zones: [.. Zones.Select(kvp => kvp.Value.Model)],
+            queuedContainers: [.. QueuedContainers.Select(kvp => (kvp.Key, kvp.Value.Select(vm => vm.Model).ToImmutableArray()))]
+        );
 
-            UpdateModel(m => m with
-            {
-                Printers = ImmutableArray.Create(currentPrinterModels),
-                Zones = ImmutableArray.Create(currentZoneModels),
-                QueuedUpContainers = QueuedContainersLookup
-            });
-        }
+        private void OnDeviceViewModelChanged(RecordModelBase oldModel, RecordModelBase newModel)
+            => UpdateModel(RebuildSystemModel());
+
+        private void OnSystemViewModelChanged(object? sender, NotifyCollectionChangedEventArgs args)
+            => UpdateModel(RebuildSystemModel());
 
         #endregion
     }

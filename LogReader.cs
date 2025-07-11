@@ -2,6 +2,7 @@
 using LogParser.Devices.ViewModel;
 using LogParser.LogTypes;
 using LogParser.Messages;
+using LogParser.Messages.Inbound;
 using LogParser.Systems.ViewModel;
 using System.Net;
 
@@ -31,23 +32,23 @@ namespace LogParser
         {
             _inboundLog = new InboundLog(
                 viewModel: new InboundSystemViewModel(
-                    printers: [
-                        new PrinterViewModel(id: 1, ipAddress: new IPAddress([172, 24, 18, 38])),
-                        new PrinterViewModel(id: 2, ipAddress: new IPAddress([172, 24, 18, 39])),
-                        new PrinterViewModel(id: 3, ipAddress: new IPAddress([172, 24, 18, 40])),
-                        new PrinterViewModel(id: 4, ipAddress: new IPAddress([172, 24, 18, 41]))
-                    ],
-                    zones: [
-                        new ZoneViewModel(id: "000")
-                    ],
-                    queuedContainers: [
-                        (ScannerName.Receiving, new List<ContainerViewModel>()),
-                        (ScannerName.Verification, new List<ContainerViewModel>())
-                    ]
+                    printers: new HashSet<PrinterViewModel> {
+                        new(printerID: 1, ipAddress: new IPAddress([172, 24, 18, 38])),
+                        new(printerID: 2, ipAddress: new IPAddress([172, 24, 18, 39])),
+                        new(printerID: 3, ipAddress: new IPAddress([172, 24, 18, 40])),
+                        new(printerID: 4, ipAddress: new IPAddress([172, 24, 18, 41]))
+                    },
+                    zones: new HashSet<ZoneViewModel> {
+                        new(zoneID: "000")
+                    },
+                    queuedContainers: new Dictionary<ScannerName, Queue<ContainerViewModel>> {
+                        { ScannerName.Receiving, [] },
+                        { ScannerName.Verification, [] }
+                    }
                 ),
                 enabledMessages: [
-                    (typeof(PrinterStatusUpdateMessage), true),
-                    (typeof(LaneStatusUpdateMessage), false),
+                    (typeof(PrinterStatusUpdate), true),
+                    (typeof(LaneStatusUpdate), false),
                     (typeof(ZonesFoundMessage), false),
                     (typeof(ScanQueuedUpMessage), true)
                 ],

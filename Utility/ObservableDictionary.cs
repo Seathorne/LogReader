@@ -1,57 +1,149 @@
-﻿namespace LogParser.Utility
+﻿using System.Collections;
+using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
+
+namespace LogParser.Utility
 {
-    internal class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue> where TKey : notnull
+    internal class ObservableDictionary<TKey, TValue> : IDictionary<TKey, TValue>, INotifyCollectionChanged where TKey : notnull
     {
-        public event Action<TKey, TValue>? ItemAdded;
-        public event Action<TKey, TValue>? ItemRemoved;
+        #region Fields
 
-        // Default constructor
-        public ObservableDictionary() : base() { }
+        private readonly Dictionary<TKey, TValue> _dictionary;
 
-        // Constructor accepting Dictionary
-        public ObservableDictionary(Dictionary<TKey, TValue> dictionary) : base(dictionary) { }
+        #endregion
 
-        // Constructor accepting IDictionary (more flexible)
-        public ObservableDictionary(IDictionary<TKey, TValue> dictionary) : base(dictionary) { }
+        #region Properties
 
-        // Constructor with capacity
-        public ObservableDictionary(int capacity) : base(capacity) { }
+        public ICollection<TKey> Keys => _dictionary.Keys;
 
-        // Constructor with comparer
-        public ObservableDictionary(IEqualityComparer<TKey> comparer) : base(comparer) { }
+        public ICollection<TValue> Values => _dictionary.Values;
 
-        // Constructor with dictionary and comparer
-        public ObservableDictionary(IDictionary<TKey, TValue> dictionary, IEqualityComparer<TKey> comparer)
-            : base(dictionary, comparer) { }
+        public int Count => _dictionary.Count;
 
-        public new void Add(TKey key, TValue value)
+        public bool IsReadOnly => false;
+
+        #endregion
+
+        #region Events
+
+        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+        #endregion
+
+        #region Constructors
+
+        public ObservableDictionary()
         {
-            base.Add(key, value);
-            ItemAdded?.Invoke(key, value);
+            _dictionary = [];
         }
 
-        public new TValue this[TKey key]
+        public ObservableDictionary(Dictionary<TKey, TValue> dictionary)
         {
-            get => base[key];
+            _dictionary = dictionary;
+        }
+
+        #endregion
+
+        #region Indexers
+
+        public TValue this[TKey key]
+        {
+            get => _dictionary[key];
             set
             {
-                bool isNew = !ContainsKey(key);
-                base[key] = value;
-                if (isNew)
-                    ItemAdded?.Invoke(key, value);
+                bool isUpdate = _dictionary.ContainsKey(key);
+                var oldValue = isUpdate ? _dictionary[key] : default;
+                _dictionary[key] = value;
+
+                var action = isUpdate ? NotifyCollectionChangedAction.Replace : NotifyCollectionChangedAction.Add;
+                var args = isUpdate
+                    ? new NotifyCollectionChangedEventArgs(action,
+                        new KeyValuePair<TKey, TValue>(key, value),
+                        new KeyValuePair<TKey, TValue>(key, oldValue!))
+                    : new NotifyCollectionChangedEventArgs(action,
+                        new KeyValuePair<TKey, TValue>(key, value));
+
+                CollectionChanged?.Invoke(this, args);
             }
         }
 
-        public new bool Remove(TKey key)
+        #endregion
+
+        #region Methods
+
+        public void Add(TKey key, TValue value)
         {
-            if (TryGetValue(key, out TValue? value))
+            _dictionary.Add(key, value);
+            CollectionChanged?.Invoke(this,
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add,
+                    new KeyValuePair<TKey, TValue>(key, value)));
+        }
+
+        public void Add(KeyValuePair<TKey, TValue> item)
+        {
+            Add(item.Key, item.Value);
+        }
+
+        public void Clear()
+        {
+            _dictionary.Clear();
+            CollectionChanged?.Invoke(this,
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
+        public bool Contains(KeyValuePair<TKey, TValue> item)
+        {
+            return _dictionary.TryGetValue(item.Key, out var value)
+                && EqualityComparer<TValue>.Default.Equals(value, item.Value);
+        }
+
+        public bool ContainsKey(TKey key)
+        {
+            return _dictionary.ContainsKey(key);
+        }
+
+        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+        {
+            ((ICollection<KeyValuePair<TKey, TValue>>)_dictionary).CopyTo(array, arrayIndex);
+        }
+
+        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+        {
+            return _dictionary.GetEnumerator();
+        }
+
+        public bool Remove(TKey key)
+        {
+            if (_dictionary.TryGetValue(key, out var value))
             {
-                bool removed = base.Remove(key);
-                if (removed)
-                    ItemRemoved?.Invoke(key, value);
-                return removed;
+                _dictionary.Remove(key);
+                CollectionChanged?.Invoke(this,
+                    new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove,
+                        new KeyValuePair<TKey, TValue>(key, value)));
+                return true;
             }
             return false;
         }
+
+        public bool Remove(KeyValuePair<TKey, TValue> item)
+        {
+            if (Contains(item))
+            {
+                return Remove(item.Key);
+            }
+            return false;
+        }
+
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+        {
+            return _dictionary.TryGetValue(key, out value);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        #endregion
     }
 }

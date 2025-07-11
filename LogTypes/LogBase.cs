@@ -8,8 +8,8 @@ namespace LogParser.LogTypes
             TViewModel viewModel,
             (Type MessageType, bool IsEnabled)[]? enabledMessages = null,
             LogReaderConsole? console = null)
-        where TModel : SystemModelBase
-        where TViewModel : SystemViewModelBase<TModel>
+        where TModel : SystemModelBase, new()
+        where TViewModel : SystemViewModelBase<TModel>, new()
     {
         #region Fields
 
@@ -25,7 +25,7 @@ namespace LogParser.LogTypes
 
         public TViewModel ViewModel { get; } = viewModel;
 
-        public ObservableDictionary<Type, bool> EnabledMessages { get; } = enabledMessages?.ToDictionary().ToObservableDictionary() ?? [];
+        public ObservableDictionary<Type, bool> EnabledMessages { get; } = enabledMessages?.ToObservableDictionary(x => x.MessageType, x => x.IsEnabled) ?? [];
 
         #endregion
 

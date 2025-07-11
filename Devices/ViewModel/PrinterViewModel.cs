@@ -7,26 +7,55 @@ namespace LogParser.Devices.ViewModel
 {
     internal class PrinterViewModel : RecordViewModelBase<PrinterModel>
     {
-        public int PrinterId => Model.PrinterId;
+        #region Properties
 
-        public IPAddress PrinterIPAddress => Model.PrinterIPAddress;
+        public int? PrinterID
+        {
+            get => Model.PrinterID;
+            set => UpdateModel(m => m with { PrinterID = value });
+        }
 
         public PrinterStatus? Status
         {
             get => Model.Status;
-            set => UpdateModel(printer => printer with { Status = value });
+            set => UpdateModel(m => m with { Status = value });
         }
 
-        public DateTimeOffset? LastTimeUsed
+        public TimeOnly? LastUsedTime
         {
-            get => Model.LastTimeUsed;
-            set => UpdateModel(printer => printer with { LastTimeUsed = value });
+            get => Model.LastUsedTime;
+            set => UpdateModel(m => m with { LastUsedTime = value });
         }
 
-        public PrinterViewModel(int id, IPAddress ipAddress, DateTimeOffset? lastTimeUsed = null, PrinterStatus? status = null)
-            : base(new PrinterModel(id, ipAddress, lastTimeUsed, status))
+        public IPAddress? IPAddress
         {
-            Model = new PrinterModel(id, ipAddress, lastTimeUsed, status);
+            get => field;
+            set
+            {
+                field = value;
+                OnPropertyChanged(nameof(IPAddress));
+            }
         }
+
+        #endregion
+
+        #region Constructors
+
+        public PrinterViewModel()
+        {
+        }
+
+        public PrinterViewModel(int printerID, IPAddress ipAddress) : base(new PrinterModel(printerID))
+        {
+            IPAddress = ipAddress;
+        }
+
+        public PrinterViewModel(int printerID, IPAddress ipAddress, PrinterStatus? status = null, TimeOnly? lastUsedTime = null)
+            : base(new PrinterModel(printerID, status, lastUsedTime))
+        {
+            IPAddress = ipAddress;
+        }
+
+        #endregion
     }
 }

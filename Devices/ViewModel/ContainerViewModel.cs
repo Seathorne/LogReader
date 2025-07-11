@@ -5,7 +5,7 @@ namespace LogParser.Devices.ViewModel
 {
     internal class ContainerViewModel : RecordViewModelBase<ContainerModel>
     {
-        public ContainerType ContainerType
+        public ContainerType? ContainerType
         {
             get => Model.ContainerType;
             set => UpdateModel(cntnr => cntnr with { ContainerType = value });
@@ -23,6 +23,10 @@ namespace LogParser.Devices.ViewModel
             set => UpdateModel(cntnr => cntnr with { LotNumber = value });
         }
 
+        public ContainerViewModel()
+        {
+        }
+
         public ContainerViewModel(params string[] barcodes) : base(new ContainerModel(barcodes))
         {
         }
@@ -34,7 +38,7 @@ namespace LogParser.Devices.ViewModel
 
         public void Update(ContainerType containerType, string? lpn = null, string? lotNumber = null)
         {
-            Model = new ContainerModel(containerType, lpn, lotNumber);
+            UpdateModel(new ContainerModel(containerType, lpn, lotNumber));
         }
     }
 }

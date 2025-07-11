@@ -1,101 +1,101 @@
 ﻿using LogParser.Devices.Enum;
-using System.Collections.Immutable;
+using LogParser.Devices.Model;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace LogParser.Messages
+namespace LogParser.Messages.Inbound
 {
-    internal partial record ScanQueuedUpMessage : MessageBase<ScanQueuedUpMessage>, IParsable<ScanQueuedUpMessage>
+    internal partial record PrinterStatusUpdate : MessageBase<PrinterStatusUpdate>, IParsable<PrinterStatusUpdate>
     {
         #region Constants
 
-        public const string MessagePattern = $"{TimeStampPattern} {ThreadNumberPattern} {ThreadNullPattern} {MessageLevelPattern}  {EquipmentNumberPattern} - {EventTimeStampPattern} - {BarcodePattern} {ScannerPattern}";
+        public const string MessagePattern = $"{TimeStampPattern} {ThreadNumberPattern} {ThreadNullPattern} {MessageLevelPattern}  {EquipmentNumberPattern} - {EventTimeStampPattern} - {PrinterStatusPattern} {TagPattern}";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private const string BarcodePattern = @"SCAN (?<barcodes>(?:(?<barcode>\w*\-?\d+),?\s?)*)";
+        private const string PrinterStatusPattern = @"Update Printer Receiving Line (?<line>1|2) PandA (?<printer>\d) Enabled (?<status>True|False)";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private const string ScannerPattern = @"Queued UP For Scanner Line (?<line>1|2) (?<scanner>Receiving|Verification) Scanner TIME START";
+        private const string TagPattern = @"using Tag: (?<tag>SCANNER_(?<scanner>\d+)_PRINTER_W_STATUS\[(?<index>\d+)\])";
 
         #endregion
 
         #region Properties
 
+        public static new MessageLevel MessageLevel => MessageLevel.Info;
+
         public TimeOnly EventTime { get; init; }
+
+        public PrinterModel Printer { get; init; }
 
         public int LineID { get; init; }
 
-        public ScannerName ScannerName { get; init; }
+        public int ScannerID { get; init; }
 
-        public ImmutableArray<string> Barcodes { get; init; }
+        public string TagName { get; init; }
 
-        public string ScannerFullName => $"Line {LineID} {ScannerName} Scanner";
+        public int TagIndex { get; init; }
+
+        public string PrinterName => $"PandA {Printer?.PrinterID} (Receiving Line {LineID})";
 
         [GeneratedRegex(MessagePattern)]
-        private static partial Regex ScanQueuedUpRegex { get; }
+        private static partial Regex MessageRegex { get; }
 
         #endregion
 
         #region Constructors
 
-        public ScanQueuedUpMessage() : this(TimeOnly.MinValue, TimeOnly.MinValue, -1, -1, -1, Devices.Enum.ScannerName.None, [])
+        public PrinterStatusUpdate() : this(TimeOnly.MinValue, TimeOnly.MinValue, -1, -1, new(), -1, -1, "", -1)
         {
         }
 
-        public ScanQueuedUpMessage(
+        public PrinterStatusUpdate(
             TimeOnly messageTime,
             TimeOnly eventTime,
             int threadID,
             int equipmentID,
+            PrinterModel printerModel,
             int lineID,
-            ScannerName scannerName,
-            ISet<string> barcodes) : this(messageTime, eventTime, threadID, equipmentID, lineID, scannerName, [.. barcodes])
-        {
-        }
-
-        public ScanQueuedUpMessage(
-            TimeOnly messageTime,
-            TimeOnly eventTime,
-            int threadID,
-            int equipmentID,
-            int lineID,
-            ScannerName scannerName,
-            ImmutableArray<string> barcodes)
+            int scannerID,
+            string tagName,
+            int tagIndex)
         {
             MessageTime = messageTime;
             EventTime = eventTime;
             ThreadID = threadID;
             EquipmentID = equipmentID;
+            Printer = printerModel;
             LineID = lineID;
-            ScannerName = scannerName;
-            Barcodes = barcodes;
+            ScannerID = scannerID;
+            TagName = tagName;
+            TagIndex = tagIndex;
         }
 
         #endregion
 
         #region Methods
 
-        public static ScanQueuedUpMessage Parse(string input)
+        public static PrinterStatusUpdate Parse(string input)
             => Parse(input, CultureInfo.InvariantCulture);
 
-        public static bool TryParse(string input, [MaybeNullWhen(false)] out ScanQueuedUpMessage result)
+        public static bool TryParse(string input, [MaybeNullWhen(false)] out PrinterStatusUpdate result)
             => TryParse(input, CultureInfo.InvariantCulture, out result);
 
-        public static ScanQueuedUpMessage Parse(string input, IFormatProvider? provider)
+        public static PrinterStatusUpdate Parse(string input, IFormatProvider? provider)
         {
-            var match = ScanQueuedUpRegex.Match(input);
+            var match = MessageRegex.Match(input);
             var groups = match.Groups;
 
             if (!match.Success)
             {
-                return new ScanQueuedUpMessage();
+                return new PrinterStatusUpdate();
             }
             else
             {
-                var barcodes = groups["barcode"].Captures.Select(capture => capture.Value);
+                int printerID = int.Parse(groups["printer"].Value);
+                var printerStatus = bool.Parse(groups["status"].Value) ? PrinterStatus.Enabled : PrinterStatus.Off;
 
-                return new ScanQueuedUpMessage (
+                return new PrinterStatusUpdate(
                     messageTime: new TimeOnly(
                         hour: int.Parse(groups["hour"].Value),
                         minute: int.Parse(groups["minute"].Value),
@@ -112,22 +112,25 @@ namespace LogParser.Messages
 
                     threadID: int.Parse(groups["thread"].Value),
                     equipmentID: int.Parse(groups["equipment"].Value),
-                    lineID: int.Parse(groups["line"].Value),
 
-                    scannerName: Enum.Parse<ScannerName>(groups["scanner"].Value),
-                    barcodes: [.. barcodes]
+                    printerModel: new PrinterModel(printerID, printerStatus),
+
+                    lineID: int.Parse(groups["line"].Value),
+                    scannerID: int.Parse(groups["scanner"].Value),
+                    tagName: groups["tag"].Value,
+                    tagIndex: int.Parse(groups["index"].Value)
                 );
             }
         }
 
-        public static bool TryParse([NotNullWhen(true)] string? input, IFormatProvider? provider, [MaybeNullWhen(false)] out ScanQueuedUpMessage result)
+        public static bool TryParse([NotNullWhen(true)] string? input, IFormatProvider? provider, [MaybeNullWhen(false)] out PrinterStatusUpdate result)
         {
             result = null;
 
             if (string.IsNullOrWhiteSpace(input))
                 return false;
 
-            var match = ScanQueuedUpRegex.Match(input);
+            var match = MessageRegex.Match(input);
             var groups = match.Groups;
 
             if (!match.Success)
@@ -163,22 +166,31 @@ namespace LogParser.Messages
             if (!int.TryParse(groups["equipment"].Value, out int equipmentID))
                 return false;
 
+            if (!int.TryParse(groups["printer"].Value, out int printerID))
+                return false;
+
+            if (!bool.TryParse(groups["status"].Value, out bool printerEnabled))
+                return false;
+
             if (!int.TryParse(groups["line"].Value, out int lineID))
                 return false;
 
-            if (!Enum.TryParse<ScannerName>(groups["scanner"].Value, out var scannerName))
+            if (!int.TryParse(groups["scanner"].Value, out int scannerID))
                 return false;
 
-            var barcodes = groups["barcode"].Captures.Select(capture => capture.Value);
+            if (!int.TryParse(groups["index"].Value, out int tagIndex))
+                return false;
 
-            result = new ScanQueuedUpMessage(
+            result = new PrinterStatusUpdate(
                 messageTime: new TimeOnly(hour, minute, second, millisecond),
                 eventTime: new TimeOnly(eventHour, eventMinute, eventSecond, eventMillisecond),
                 threadID,
                 equipmentID,
+                printerModel: new PrinterModel(printerID, printerEnabled ? PrinterStatus.Enabled : PrinterStatus.Off),
                 lineID,
-                scannerName,
-                barcodes: [.. barcodes]
+                scannerID,
+                groups["tag"].Value,
+                tagIndex
             );
 
             return true;

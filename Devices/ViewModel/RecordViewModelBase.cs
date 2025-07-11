@@ -1,47 +1,68 @@
-﻿namespace LogParser.Devices.ViewModel
+﻿using LogParser.Devices.Model;
+
+namespace LogParser.Devices.ViewModel
 {
-    internal abstract class RecordViewModelBase<TModel>(TModel initialModel) : ViewModelBase where TModel : class
+    internal abstract class RecordViewModelBase<TModel> : ViewModelBase where TModel : RecordModelBase, new()
     {
-        private TModel _model = initialModel;
+        #region Fields
+
+        private TModel _model;
+
+        #endregion
+
+        #region Events
 
         public event Action<TModel, TModel>? ModelChanged;
-        
-        public event Action<TModel>? ModelUpdated;
 
-        internal event Action? RequestSystemUpdate;
+        #endregion
+
+        #region Constructors
+
+        protected RecordViewModelBase()
+        {
+            _model = new TModel();
+        }
+
+        protected RecordViewModelBase(TModel initialModel)
+        {
+            _model = initialModel;
+        }
+
+        #endregion
+
+        #region Properties
 
         internal TModel Model
         {
             get => _model;
-            set
+            private set
             {
                 if (!ReferenceEquals(_model, value))
                 {
                     var oldModel = _model;
                     _model = value;
 
-                    foreach (var prop in GetChangedProperties(oldModel, value))
-                    {
-                        OnPropertyChanged(prop);
-                    }
-
+                    OnPropertiesChanged(oldModel, value);
                     OnPropertyChanged(nameof(Model));
                     ModelChanged?.Invoke(oldModel, value);
                 }
-                ModelUpdated?.Invoke(value);
             }
         }
+
+        #endregion
+
+        #region Methods
 
         public void UpdateModel(TModel newModel)
         {
             Model = newModel;
-            RequestSystemUpdate?.Invoke();
         }
 
         protected void UpdateModel(Func<TModel, TModel> update)
         {
             Model = update(Model);
-            RequestSystemUpdate?.Invoke();
         }
+
+        #endregion
     }
 }

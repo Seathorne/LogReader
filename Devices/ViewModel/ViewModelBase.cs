@@ -7,53 +7,29 @@ namespace LogParser.Devices.ViewModel
 {
     internal abstract class ViewModelBase : INotifyPropertyChanged
     {
-        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
+        #region Fields
+
+        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
+
+        #endregion
+
+        #region Events
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
+        #endregion
 
-        protected void UpdateModel<TModel>(
-            ref TModel model,
-            Func<TModel, TModel> update,
-            Action<TModel, TModel>? onModelChanged = null,
-            Action<TModel>? onModelUpdated = null) where TModel : class
-        {
-            var oldModel = model;
-            var newModel = update(oldModel);
+        #region Methods
 
-            if (!ReferenceEquals(oldModel, newModel))
-            {
-                model = newModel;
-
-                // Get changed properties efficiently
-                var changedProps = GetChangedProperties(oldModel, newModel).ToList();
-
-                // Batch notifications
-                foreach (var prop in changedProps)
-                {
-                    OnPropertyChanged(prop);
-                }
-
-                OnPropertyChanged(nameof(Model));
-                onModelChanged?.Invoke(oldModel, newModel);
-            }
-
-            onModelUpdated?.Invoke(newModel);
-        }
-
-        protected static IEnumerable<string> GetChangedProperties<TModel>(TModel oldModel, TModel newModel)
+        protected static IEnumerable<string> GetChangedProperties<T>(T oldModel, T newModel)
         {
             if (oldModel == null || newModel == null)
                 yield break;
 
             // Cache reflection results
-            var properties = PropertyCache.GetOrAdd(
-                typeof(TModel),
-                t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            var properties = _propertyCache.GetOrAdd(
+                key: typeof(T),
+                valueFactory: type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             );
 
             foreach (var prop in properties)
@@ -67,5 +43,24 @@ namespace LogParser.Devices.ViewModel
                 }
             }
         }
+
+        protected void OnPropertiesChanged<T>(T oldModel, T newModel)
+        {
+            // Get changed properties efficiently
+            var changedProps = GetChangedProperties(oldModel, newModel).ToList();
+
+            // Batch notifications
+            foreach (var prop in changedProps)
+            {
+                OnPropertyChanged(prop);
+            }
+        }
+        
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        #endregion
     }
 }

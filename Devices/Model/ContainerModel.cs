@@ -7,7 +7,7 @@ namespace LogParser.Devices.Model
     {
         #region Properties
 
-        public ContainerType ContainerType { get; init; }
+        public ContainerType? ContainerType { get; init; }
 
         public string? LPN { get; init; }
 
@@ -29,23 +29,27 @@ namespace LogParser.Devices.Model
 
         #region Constructors
 
+        public ContainerModel()
+        {
+        }
+        
         public ContainerModel(params string[] barcodes)
         {
             foreach (string barcode in barcodes)
             {
                 if (barcode.Length == 5 && TotePattern.Match(barcode).Success)
                 {
-                    ContainerType = ContainerType.Tote;
+                    ContainerType = Enum.ContainerType.Tote;
                     LPN = barcode;
                 }
                 else if (barcode.Length == 12 && TrayPattern.Match(barcode).Success)
                 {
-                    ContainerType = barcode[0] == 'S' ? ContainerType.SmallTray : ContainerType.LargeTray;
+                    ContainerType = barcode[0] == 'S' ? Enum.ContainerType.SmallTray : Enum.ContainerType.LargeTray;
                     LPN = barcode;
                 }
                 else if (CasePattern.Match(barcode).Success)
                 {
-                    ContainerType = ContainerType.HighbayCase;
+                    ContainerType = Enum.ContainerType.HighbayCase;
                     LPN = barcode;
                 }
                 else if (LotNumberPattern.Match(barcode).Success)
@@ -55,7 +59,7 @@ namespace LogParser.Devices.Model
             }
         }
 
-        public ContainerModel(ContainerType containerType, string? lpn, string? lotNumber = null)
+        public ContainerModel(ContainerType? containerType = null, string? lpn = null, string? lotNumber = null)
         {
             ContainerType = containerType;
             LPN = lpn;

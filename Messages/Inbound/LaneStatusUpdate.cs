@@ -7,14 +7,14 @@ using System.Text.RegularExpressions;
 
 namespace LogParser.Messages
 {
-    internal partial record ZonesFoundMessage : MessageBase<ZonesFoundMessage>, IParsable<ZonesFoundMessage>
+    internal partial record LaneStatusUpdate : MessageBase<LaneStatusUpdate>, IParsable<LaneStatusUpdate>
     {
         #region Constants
 
-        public const string MessagePattern = $"{TimeStampPattern} {ThreadNumberPattern} {ThreadNullPattern} {MessageLevelPattern} {EquipmentNumberPattern} - {ZonesFoundPattern} {ScannerPattern}";
-        
+        public const string MessagePattern = $"{TimeStampPattern} {ThreadNumberPattern} {ThreadNullPattern} {MessageLevelPattern} {EquipmentNumberPattern} - {DisabledLanesPattern} {ScannerPattern}";
+
         [StringSyntax(StringSyntaxAttribute.Regex)]
-        private const string ZonesFoundPattern = @"Zones Found \[(?<zones>(?:(?<zone>\d+),?\s?)*)\]";
+        private const string DisabledLanesPattern = @"(?<status>Disabled|Partially Full|Full) Lanes \[(?<lanes>(?:(?<lane>\d+),?\s?)*)\]";
 
         [StringSyntax(StringSyntaxAttribute.Regex)]
         private const string ScannerPattern = @"at Scanner \[Line (?<line>\d+) Receiving Scanner\]";
@@ -23,12 +23,12 @@ namespace LogParser.Messages
 
         #region Properties
 
-        public static new MessageLevel MessageLevel = MessageLevel.Debug;
+        public static new MessageLevel MessageLevel => MessageLevel.Debug;
 
-        public ImmutableArray<ZoneModel> Zones { get; }
+        public ImmutableArray<LaneModel> Lanes { get; init; }
 
         public int LineID { get; init; }
-        
+
         public string ScannerName => $"Line {LineID} Receiving Scanner";
 
         [GeneratedRegex(MessagePattern)]
@@ -38,58 +38,58 @@ namespace LogParser.Messages
 
         #region Constructors
 
-        public ZonesFoundMessage() : this(TimeOnly.MinValue, -1, -1, -1, [])
+        public LaneStatusUpdate() : this(TimeOnly.MinValue, -1, -1, -1, [])
         {
         }
 
-        public ZonesFoundMessage(
+        public LaneStatusUpdate(
             TimeOnly messageTime,
             int threadID,
             int equipmentID,
             int lineID,
-            ISet<ZoneModel> zoneModels) : this(messageTime, threadID, equipmentID, lineID, [.. zoneModels])
+            ISet<LaneModel> laneModels) : this(messageTime, threadID, equipmentID, lineID, [.. laneModels])
         {
         }
 
-        public ZonesFoundMessage(
+        public LaneStatusUpdate(
             TimeOnly messageTime,
             int threadID,
             int equipmentID,
             int lineID,
-            ImmutableArray<ZoneModel> zoneModels)
+            ImmutableArray<LaneModel> lanes)
         {
             MessageTime = messageTime;
             ThreadID = threadID;
             EquipmentID = equipmentID;
+            Lanes = lanes;
             LineID = lineID;
-            Zones = zoneModels;
         }
 
         #endregion
 
         #region Methods
 
-        public static ZonesFoundMessage Parse(string input)
-            => Parse(input, CultureInfo.InvariantCulture);
+        public static LaneStatusUpdate Parse(string message)
+            => Parse(message, CultureInfo.InvariantCulture);
 
-        public static bool TryParse(string input, [MaybeNullWhen(false)] out ZonesFoundMessage result)
-            => TryParse(input, CultureInfo.InvariantCulture, out result);
+        public static bool TryParse(string message, [MaybeNullWhen(false)] out LaneStatusUpdate result)
+            => TryParse(message, CultureInfo.InvariantCulture, out result);
 
-        public static ZonesFoundMessage Parse(string input, IFormatProvider? provider)
+        public static LaneStatusUpdate Parse(string input, IFormatProvider? provider)
         {
             var match = MessageRegex.Match(input);
             var groups = match.Groups;
 
             if (!match.Success)
             {
-                return new ZonesFoundMessage();
+                return new LaneStatusUpdate();
             }
             else
             {
-                var messageLevel = Enum.Parse<MessageLevel>(ToPascalCase(groups["level"].Value));
-                var zoneModels = groups["zone"].Captures.Select(zoneID => new ZoneModel(zoneID.Value));
+                var laneStatus = Enum.Parse<LaneStatus>(ToPascalCase(groups["status"].Value));
+                var laneModels = groups["lane"].Captures.Select(laneID => new LaneModel(int.Parse(laneID.Value), laneStatus));
 
-                return new ZonesFoundMessage(
+                return new LaneStatusUpdate(
                     messageTime: new TimeOnly(
                         hour: int.Parse(groups["hour"].Value),
                         minute: int.Parse(groups["minute"].Value),
@@ -101,12 +101,12 @@ namespace LogParser.Messages
                     equipmentID: int.Parse(groups["equipment"].Value),
                     lineID: int.Parse(groups["line"].Value),
 
-                    zoneModels: [.. zoneModels]
+                    lanes: [.. laneModels]
                 );
             }
         }
 
-        public static bool TryParse([NotNullWhen(true)] string? input, IFormatProvider? provider, [MaybeNullWhen(false)] out ZonesFoundMessage result)
+        public static bool TryParse([NotNullWhen(true)] string? input, IFormatProvider? provider, [MaybeNullWhen(false)] out LaneStatusUpdate result)
         {
             result = null;
 
@@ -140,14 +140,24 @@ namespace LogParser.Messages
             if (!int.TryParse(groups["line"].Value, out int lineID))
                 return false;
 
-            var zoneModels = groups["zone"].Captures.Select(zoneID => new ZoneModel(zoneID.Value));
+            if (!Enum.TryParse<LaneStatus>(ToPascalCase(groups["status"].Value), out var laneStatus))
+                return false;
 
-            result = new ZonesFoundMessage(
+            IList<LaneModel> laneModels = [];
+            foreach (Capture capture in groups["lane"].Captures)
+            {
+                if (!int.TryParse(capture.Value, out int laneID))
+                    return false;
+
+                laneModels.Add(new LaneModel(laneID, laneStatus));
+            }
+
+            result = new LaneStatusUpdate(
                 messageTime: new TimeOnly(hour, minute, second, millisecond),
                 threadID,
                 equipmentID,
                 lineID,
-                zoneModels: [.. zoneModels]
+                lanes: [.. laneModels]
             );
 
             return true;

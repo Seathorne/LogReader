@@ -2,5 +2,5 @@
 
 namespace LogParser.Systems.Model
 {
-    internal record SystemModelBase(DateTimeOffset? TimeStamp = null) : RecordModelBase;
+    internal abstract record SystemModelBase : RecordModelBase;
 }
