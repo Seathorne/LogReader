@@ -9,4 +9,10 @@
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="Equipment\Outbound\Logs\" />
+    <Folder Include="Equipment\Outbound\Messages\" />
+    <Folder Include="Equipment\Outbound\Subsystems\" />
+  </ItemGroup>
+
 </Project>
